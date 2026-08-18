@@ -83,56 +83,37 @@ bool KCacheClient::Set(const std::string& group, const std::string& key, const s
         return false;
     }
 
-    // 广播其他节点发送缓存失效通知
-    bool all_success = true;
-    {
-        std::lock_guard<std::mutex> lock(nodes_mutex_);
-        for (const auto& addr : cache_nodes_) {
-            if (addr != target_addr) {
-                auto channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-                auto client = pb::KCache::NewStub(channel);
-                pb::InvalidateResponse response;
-                grpc::ClientContext ctx;
-
-                auto status = client->Invalidate(&ctx, request, &response);
-                if (!(status.ok() && response.value())) {
-                    all_success = false;
-                    spdlog::warn("Failed to Invalidate key on node {}", addr);
-                }
-            }
-        }
-    }
-
-    return all_success;
+    return true;
 }
 
 bool KCacheClient::Delete(const std::string& group, const std::string& key) {
+        auto target_addr = GetCacheNode(key);
+    if (target_addr.empty()) {
+        spdlog::warn("No cache service available for Delete");
+        return false;
+    }
+
+    auto channel = grpc::CreateChannel(target_addr, grpc::InsecureChannelCredentials());
+    auto client = pb::KCache::NewStub(channel);
+    if (!client) {
+        spdlog::error("Failed to create gRPC stub for node: {}", target_addr);
+        return false;
+    }
+
     pb::Request request;
     request.set_group(group);
     request.set_key(key);
 
-    bool all_success = true;
-    {
-        std::lock_guard<std::mutex> lock(nodes_mutex_);
-        if (cache_nodes_.empty()) {
-            spdlog::warn("No cache service available for Delete");
-            return false;
-        }
+    pb::DeleteResponse response;
+    grpc::ClientContext context;
+    auto status = client->Delete(&context, request, &response);
 
-        for (const auto& addr : cache_nodes_) {
-            auto channel = grpc::CreateChannel(addr, grpc::InsecureChannelCredentials());
-            auto client = pb::KCache::NewStub(channel);
-            grpc::ClientContext ctx;
-            pb::DeleteResponse response;
-
-            auto status = client->Delete(&ctx, request, &response);
-            if (!(status.ok() && response.value())) {
-                all_success = false;
-                spdlog::warn("Failed to delete key on node {}", addr);
-            }
-        }
+    if (!(status.ok() && response.value())) {
+        spdlog::error("Failed to delete value on node {}: {}", target_addr);
+        return false;
     }
-    return all_success;
+
+    return true;
 }
 
 bool KCacheClient::StartServiceDiscovery() {

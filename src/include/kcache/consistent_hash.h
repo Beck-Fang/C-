@@ -33,7 +33,7 @@ struct HashConfig {
 
 // DefaultConfig 默认配置
 const HashConfig kDefaultConfig = {
-    10,   10, 200, Crc32IEEE,
+    100,   100, 200, Crc32IEEE,
     0.25,  // 25% 的负载不均衡度触发调整
 };
 

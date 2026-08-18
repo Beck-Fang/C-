@@ -15,12 +15,13 @@
 
 namespace kcache {
 
+template<typename Key, typename Value>
 class SingleFlight {
-    using Result = std::optional<ByteView>;
-    using Func = std::function<Result()>;
+    using ValueOptional = std::optional<Value>;
+    using Func = std::function<ValueOptional()>;
 
 public:
-    Result Do(const std::string& key, Func func) {
+    ValueOptional Do(const Key& key, Func func) {
         std::unique_lock<std::mutex> glock(mtx_);
 
         // 检查是否有进行中的调用
@@ -29,8 +30,8 @@ public:
             glock.unlock();  // 释放组锁，避免阻塞其他键的处理
 
             // 直接等待 future 的结果
-            auto result = existing_call->fut.get();
-            return result;
+            auto val = existing_call->fut.get();
+            return val;
         }
 
         // 创建新的调用对象
@@ -39,7 +40,7 @@ public:
         glock.unlock();
 
         // 执行用户函数并设置 promise
-        Result val = func();
+        ValueOptional val = func();
         new_call->prom.set_value(val);
 
         // 确保从映射中删除条目
@@ -51,12 +52,12 @@ public:
 
 private:
     struct Call {
-        std::promise<Result> prom;
-        std::shared_future<Result> fut = prom.get_future().share();
+        std::promise<ValueOptional> prom;
+        std::shared_future<ValueOptional> fut = prom.get_future().share();
     };
 
     std::mutex mtx_;
-    std::unordered_map<std::string, std::shared_ptr<Call>> map_;
+    std::unordered_map<Key, std::shared_ptr<Call>> map_;
 };
 
 }  // namespace kcache

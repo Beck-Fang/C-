@@ -22,51 +22,50 @@ KCacheServer::KCacheServer(const std::string& addr, const std::string& svc_name,
     }
 }
 
+/**
+ *  后续可拓展更多功能：
+ *  1、创建缓存组
+ *  2、增加更多参数，可创建不同Key,Value类型的缓存组，配套新的缓存组表变量
+ *  
+ */
+
 auto KCacheServer::Get(grpc::ServerContext* context, const pb::Request* request, pb::GetResponse* response)
     -> grpc::Status {
-    auto group = GetCacheGroup(request->group());
+    auto group = GetCacheGroup<std::string,std::string>(request->group());
     if (!group) {
         return grpc::Status(grpc::StatusCode::NOT_FOUND, "Group not found");
     }
-    auto value = group->Get(request->key());
-    if (!value) {
+    std::string key = request->key();//request->key()获取的是const类型
+    auto val = group->Get(key);
+    if (!val) {
         return grpc::Status(grpc::StatusCode::NOT_FOUND, "Key not found");
     }
-    response->set_value(value->ToString());
+    response->set_value(val.value());
     return grpc::Status::OK;
 }
 
 auto KCacheServer::Set(grpc::ServerContext* context, const pb::Request* request, pb::SetResponse* response)
     -> grpc::Status {
-    auto group = GetCacheGroup(request->group());
+    auto group = GetCacheGroup<std::string,std::string>(request->group());
     if (!group) {
         return grpc::Status(grpc::StatusCode::NOT_FOUND, "Group not found");
     }
-    bool is_set = group->Set(request->key(), request->value());
+    std::string key = request->key();
+    std::string value = request->value();
+    bool is_set = group->Set(key,value);
     response->set_value(is_set);
     return grpc::Status::OK;
 }
 
 auto KCacheServer::Delete(grpc::ServerContext* context, const pb::Request* request, pb::DeleteResponse* response)
     -> grpc::Status {
-    auto group = GetCacheGroup(request->group());
+    auto group = GetCacheGroup<std::string,std::string>(request->group());
     if (!group) {
         return grpc::Status(grpc::StatusCode::NOT_FOUND, "Group not found");
     }
-    bool is_delete = group->Delete(request->key());
+    std::string key = request->key();
+    bool is_delete = group->Delete(key);
     response->set_value(is_delete);
-    return grpc::Status::OK;
-}
-
-auto KCacheServer::Invalidate(grpc::ServerContext* context, const pb::Request* request,
-                              pb::InvalidateResponse* response) -> grpc::Status {
-    auto group = GetCacheGroup(request->group());
-    if (!group) {
-        return grpc::Status(grpc::StatusCode::NOT_FOUND, "Group not found");
-    }
-    // Invalidate RPC 调用总是来自其他节点，调用 InvalidateFromPeer 避免循环传播
-    bool is_invalidate = group->InvalidateFromPeer(request->key());
-    response->set_value(is_invalidate);
     return grpc::Status::OK;
 }
 

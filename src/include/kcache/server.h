@@ -5,12 +5,13 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
 #include <grpcpp/grpcpp.h>
 #include <etcd/Client.hpp>
 
 #include "kcache.grpc.pb.h"
-#include "kcache.pb.h"
+#include "kcache.pb.h"  //可以在protobuf协议的proto文件中再添加一个参数，用于支持不同类型的Key,Value。目前默认string,bytes
 #include "kcache/registry.h"
 
 namespace kcache {
@@ -63,9 +64,6 @@ public:
         -> grpc::Status override;
 
     auto Delete(grpc::ServerContext* context, const pb::Request* request, pb::DeleteResponse* response)
-        -> grpc::Status override;
-
-    auto Invalidate(grpc::ServerContext* context, const pb::Request* request, pb::InvalidateResponse* response)
         -> grpc::Status override;
 
     void Start();

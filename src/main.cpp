@@ -5,6 +5,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <optional>
 
 #include <fmt/base.h>
 #include <fmt/core.h>
@@ -21,13 +22,15 @@ using namespace kcache;
 DEFINE_int32(port, 8001, "节点端口");
 DEFINE_string(node, "A", "节点标识符");
 DEFINE_string(group, "default", "缓存组名称");
+DEFINE_string(cache, "LRU", "缓存策略");
 DEFINE_string(log_level, "info", "日志级别， 可选值：trace, debug, info, warn, error, critical");
 DEFINE_string(etcd_endpoints, "http://127.0.0.1:2379", "etcd地址");
 
 // 模拟数据库
 std::unordered_map<std::string, std::string> db = {
     {"Tom", "400"},     {"Kerolt", "370"}, {"Jack", "296"}, {"Alice", "320"}, {"Bob", "280"},
-    {"Charlie", "410"}, {"Diana", "390"},  {"Eve", "310"},  {"abcde", "789"}, {"hello", "879"}};
+    {"Charlie", "410"}, {"Diana", "390"},  {"Eve", "310"},  {"abcde", "789"}, {"hello", "879"}
+};
 
 std::function<void(int)> handler_wrapper;
 void HandleCtrlC(int signum) { handler_wrapper(signum); }
@@ -75,13 +78,34 @@ int main(int argc, char** argv) {
 
         std::this_thread::sleep_for(std::chrono::seconds(5));  // 等待服务器启动
 
-        // 创建缓存组
-        auto& group = MakeCacheGroup(FLAGS_group, 2 << 20, [&](const std::string& key) -> ByteViewOptional {
+        // 创建缓存组。当前版本，缓存组方法的Key变量不能传入const类型和临时变量
+        std::unique_ptr<CachePolicy<std::string,std::string>>cache;
+
+        if(FLAGS_cache == "LRU-K"){
+            cache = std::make_unique<KLruKCache<std::string,std::string>>(10000,10000);
+            spdlog::info("using cachepolicy: LRU-K");
+        } else if (FLAGS_cache == "HASH_LRU"){
+            cache = std::make_unique<KHashLruCache<std::string,std::string>>(20000);
+            spdlog::info("using cachepolicy: HASH_LRU");
+        } else if (FLAGS_cache == "LFU"){
+            cache = std::make_unique<KLfuCache<std::string,std::string>>(20000);
+            spdlog::info("using cachepolicy: LFU");
+        } else if (FLAGS_cache == "HASH_LFU"){
+            cache = std::make_unique<KHashLfuCache<std::string,std::string>>(20000);
+            spdlog::info("using cachepolicy: HASH-LFU");
+        } else if (FLAGS_cache == "ARC"){
+            cache = std::make_unique<KArcCache<std::string,std::string>>(20000);
+            spdlog::info("using cachepolicy: ARC");
+        } else {
+            cache = std::make_unique<KLruCache<std::string,std::string>>(20000);//"LRU"
+            spdlog::info("using cachepolicy: LRU");
+        }
+
+        MakeCacheGroup<std::string,std::string>(FLAGS_group, std::move(cache), [&](const std::string& key) -> std::optional<std::string> {
             if (db.find(key) != db.end()) {
                 spdlog::info(">_< search [{}] from db\n", key);
-                return ByteView{db[key]};
+                return db[key];
             }
-            spdlog::info(">_< Uh oh, there is not found [{}]\n", key);
             return std::nullopt;
         });
 

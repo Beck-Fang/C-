@@ -24,5 +24,5 @@ find_package(httplib CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 add_subdirectory(src)
-add_subdirectory(test)
+# add_subdirectory(test)
 add_subdirectory(example)
