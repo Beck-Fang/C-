@@ -1,5 +1,5 @@
-#ifndef KARCCACHE_H
-#define KARCCACHE_H
+#ifndef KARCCACHE_H_
+#define KARCCACHE_H_
 
 #include "kcache/CachePolicy.h"
 #include "kcache/KArcLruPart.h"

@@ -1,5 +1,5 @@
-#ifndef KARCLRUPART_H
-#define KARCLRUPART_H
+#ifndef KARCLRUPART_H_
+#define KARCLRUPART_H_
 
 #include "kcache/KArcCacheNode.h"
 #include <unordered_map>

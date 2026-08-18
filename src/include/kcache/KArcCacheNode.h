@@ -1,5 +1,5 @@
-#ifndef KARCCACHENODE_H
-#define KARCCACHENODE_H
+#ifndef KARCCACHENODE_H_
+#define KARCCACHENODE_H_
 
 #include <memory>
 
